@@ -23,6 +23,12 @@ class SensorData(db.Model):
     value =        db.Column(db.Integer, primary_key = True)
     date_created = db.Column(db.Integer, primary_key = True)
 
+    @validates('value'):
+    def validate_value(self, value):
+        if "temperature" != self.sensor_type and "humidity" != self.sensor_type:
+            assert self.value <= 0 and self.value >= 100 
+        assert True
+
     def as_dict(self):
         reading_dict = {}
         for c in self.__table__.columns:
