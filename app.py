@@ -1,5 +1,7 @@
 from flask import Flask, render_template, request, Response
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, validates
 from flask.json import jsonify
 import json
 import sqlite3
@@ -9,6 +11,12 @@ import pdb
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 db = SQLAlchemy(app)
+
+engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI'], echo=True)
+Session = sessionmaker(bind = engine)
+
+
+# Create Session factory
 
 # Setup the SQLite DB
 conn = sqlite3.connect('database.db')
@@ -21,13 +29,20 @@ class SensorData(db.Model):
     device_uuid =  db.Column(db.Text, primary_key = True)
     sensor_type =  db.Column('type', db.Text, primary_key = True)
     value =        db.Column(db.Integer, primary_key = True)
-    date_created = db.Column(db.Integer, primary_key = True)
+    date_created = db.Column(db.Integer, primary_key = True, default = int(time.time()))
 
-    @validates('value'):
-    def validate_value(self, value):
+    def __init__(self, data):
+        self.device_uuid = data['device_uuid']
+        self.sensor_type = data['type']
+        self.value = data['value']
+        self.date_created = data['date_created']
+
+    @validates('value')
+    def validate_value(self, key, value):
+        pdb.set_trace()
         if "temperature" != self.sensor_type and "humidity" != self.sensor_type:
-            assert self.value <= 0 and self.value >= 100 
-        assert True
+            assert value <= 0 or value >= 100 
+        return value
 
     def as_dict(self):
         reading_dict = {}
@@ -67,19 +82,30 @@ def request_device_readings(device_uuid):
         # Grab the post parameters
 
         post_data = json.loads(request.data)
+        post_data['device_uuid'] = device_uuid
         # Only Temperature and humidity sensors are allowed with values between 0 and 100
-        sensor_type = post_data.get('type')
-        value = post_data.get('value')
-        date_created = post_data.get('date_created', int(time.time()))
+        #sensor_type = post_data.get('type')
+        #value = post_data.get('value')
+        #date_created = post_data.get('date_created', int(time.time()))
 
-        # Insert data into db
-        cur.execute('insert into readings (device_uuid,type,value,date_created) VALUES (?,?,?,?)',
-                    (device_uuid, sensor_type, value, date_created))
-        
-        conn.commit()
+        ## Insert data into db
+        #cur.execute('insert into readings (device_uuid,type,value,date_created) VALUES (?,?,?,?)',
+        #            (device_uuid, sensor_type, value, date_created))
+        #
+        #conn.commit()
 
-        # Return success
-        return 'success', 201
+        try:
+            reading = SensorData(post_data)
+        except AssertionError:
+            return 'Invalid value for sensor type, only temperature and humidity may have values between 0 and 100', 422
+
+        try:
+            db.session.add(reading)
+            db.session.commit()
+            return 'success', 201
+        except e:
+            return 'Error saving reading to database %s' % e.msg, 500 
+
     else:
         # Execute the query
         # cur.execute('select * from readings where device_uuid="{}"'.format(device_uuid))
