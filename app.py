@@ -8,21 +8,34 @@ import sqlite3
 import time
 import pdb
 
+# Setup python flask
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
+
+# Set the db that we want and open the connection
+database = None
+if app.config['TESTING']:
+    database = 'test_database.db'
+    conn = sqlite3.connect('test_database.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test_database.db'
+else:
+    database = 'database.db'
+    conn = sqlite3.connect('database.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
+conn.row_factory = sqlite3.Row
+cur = conn.cursor()
 db = SQLAlchemy(app)
 
+# Setup the SQLite DB
+conn = sqlite3.connect(database)
+conn.execute('CREATE TABLE IF NOT EXISTS readings (device_uuid TEXT, type TEXT, value INTEGER, date_created INTEGER)')
+conn.close()
+
+# Setup SqlAlchemy session
 engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI'], echo=True)
 Session = sessionmaker(bind = engine)
 
 
-# Create Session factory
-
-# Setup the SQLite DB
-conn = sqlite3.connect('database.db')
-conn.execute('CREATE TABLE IF NOT EXISTS readings (device_uuid TEXT, type TEXT, value INTEGER, date_created INTEGER)')
-conn.close()
-
+# Readings Model
 class SensorData(db.Model):
     __tablename__ = "readings"
 
@@ -39,7 +52,6 @@ class SensorData(db.Model):
 
     @validates('value')
     def validate_value(self, key, value):
-        pdb.set_trace()
         if "temperature" != self.sensor_type and "humidity" != self.sensor_type:
             assert value <= 0 or value >= 100 
         return value
@@ -64,38 +76,18 @@ def request_device_readings(device_uuid):
     * date_created -> The epoch date of the sensor reading.
         If none provided, we set to now.
 
-    Optional Query Parameters:
-    * start -> The epoch start time for a sensor being created
-    * end -> The epoch end time for a sensor being created
-    * type -> The type of sensor value a client is looking for
     """
-
-    # Set the db that we want and open the connection
-    if app.config['TESTING']:
-        conn = sqlite3.connect('test_database.db')
-    else:
-        conn = sqlite3.connect('database.db')
-    conn.row_factory = sqlite3.Row
-    cur = conn.cursor()
+    try:
+        body_data = json.loads(request.data)
+    except:
+        return 'Bad request', 400
    
     if request.method == 'POST':
-        # Grab the post parameters
 
-        post_data = json.loads(request.data)
-        post_data['device_uuid'] = device_uuid
-        # Only Temperature and humidity sensors are allowed with values between 0 and 100
-        #sensor_type = post_data.get('type')
-        #value = post_data.get('value')
-        #date_created = post_data.get('date_created', int(time.time()))
-
-        ## Insert data into db
-        #cur.execute('insert into readings (device_uuid,type,value,date_created) VALUES (?,?,?,?)',
-        #            (device_uuid, sensor_type, value, date_created))
-        #
-        #conn.commit()
+        body_data['device_uuid'] = device_uuid
 
         try:
-            reading = SensorData(post_data)
+            reading = SensorData(body_data)
         except AssertionError:
             return 'Invalid value for sensor type, only temperature and humidity may have values between 0 and 100', 422
 
@@ -107,14 +99,22 @@ def request_device_readings(device_uuid):
             return 'Error saving reading to database %s' % e.msg, 500 
 
     else:
-        # Execute the query
-        # cur.execute('select * from readings where device_uuid="{}"'.format(device_uuid))
-        # rows = cur.fetchall()
 
-        # Return the JSON
-        # return jsonify([dict(zip(['device_uuid', 'type', 'value', 'date_created'], row)) for row in rows]), 200
-        
-        rows = SensorData.query.filter(device_uuid==device_uuid) 
+        """
+        Optional Query Parameters:
+        * start -> The epoch start time for a sensor being created
+        * end -> The epoch end time for a sensor being created
+        * type -> The type of sensor value a client is looking for
+        """
+        query = SensorData.query.filter(device_uuid == device_uuid) 
+        if body_data.get('type', None):
+            query = query.filter(SensorData.sensor_type == body_data.get('type'))
+        if body_data.get('start', None):
+            query = query.filter(SensorData.date_created >= body_data.get('start'))
+        if body_data.get('end', None):
+            query = query.filter(SensorData.date_created <= body_data.get('end'))
+
+        rows = query.all()
         return jsonify([row.as_dict() for row in rows]), 200
 
 # Returns single sensor reading dictionary: { date_created, device_uuid, type, value }
@@ -130,27 +130,19 @@ def request_device_readings_min(device_uuid):
     * start -> The epoch start time for a sensor being created
     * end -> The epoch end time for a sensor being created
     """
-    if app.config['TESTING']:
-        conn = sqlite3.connect('test_database.db')
-    else:
-        conn = sqlite3.connect('database.db')
-    conn.row_factory = sqlite3.Row
-    cur = conn.cursor()
+    #if app.config['TESTING']:
+    #    conn = sqlite3.connect('test_database.db')
+    #else:
+    #    conn = sqlite3.connect('database.db')
+    #conn.row_factory = sqlite3.Row
+    #cur = conn.cursor()
 
     get_data = json.loads(request.data)
     sensor_type = get_data.get('type', None)
     if not sensor_type:
         return 'missing type parameter', 422 
 
-    start_date = get_data.get('start', int(time.time()))
-    end_date = get_data.get('end', int(time.time()))
-
-    # Insert data into db
-    cur.execute('insert into readings (device_uuid,type,value,date_created) VALUES (?,?,?,?)',
-                (device_uuid, sensor_type, value, date_created))
     
-    conn.commit()
-
     return 'Endpoint is not implemented', 501
 
 @app.route('/devices/<string:device_uuid>/readings/max/', methods = ['GET'])
