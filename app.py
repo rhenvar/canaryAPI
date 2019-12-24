@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, Response
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, validates
+from sqlalchemy.sql import func
 from flask.json import jsonify
 import json
 import sqlite3
@@ -137,13 +138,32 @@ def request_device_readings_min(device_uuid):
     #conn.row_factory = sqlite3.Row
     #cur = conn.cursor()
 
-    get_data = json.loads(request.data)
-    sensor_type = get_data.get('type', None)
-    if not sensor_type:
-        return 'missing type parameter', 422 
+    try:
+        body_data = json.loads(request.data)
+    except:
+        return 'Bad request', 400
 
-    
-    return 'Endpoint is not implemented', 501
+    if not body_data.get('type', None):
+        return 'Missing type parameter', 422
+
+    session = Session()
+    subquery = session.query(func.min(SensorData.value)).filter(device_uuid == device_uuid)
+    if body_data.get('start', None):
+        subquery = subquery.filter(SensorData.date_created >= body_data.get('start'))
+    if body_data.get('end', None):
+        subquery = subquery.filter(SensorData.date_created <= body_data.get('end'))
+
+    min_val = subquery.first()[0]
+
+    query = SensorData.query.filter(SensorData.device_uuid == device_uuid, SensorData.value == min_val)
+    if body_data.get('start', None):
+        query = query.filter(SensorData.date_created >= body_data.get('start'))
+    if body_data.get('end', None):
+        query = query.filter(SensorData.date_created <= body_data.get('end'))
+    query = query.order_by(SensorData.date_created.desc())
+
+    row = query.first()
+    return jsonify(row.as_dict()), 200
 
 @app.route('/devices/<string:device_uuid>/readings/max/', methods = ['GET'])
 def request_device_readings_max(device_uuid):
