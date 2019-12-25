@@ -53,8 +53,7 @@ class SensorData(db.Model):
 
     @validates('value')
     def validate_value(self, key, value):
-        if "temperature" != self.sensor_type and "humidity" != self.sensor_type:
-            assert value <= 0 or value >= 100 
+        assert value > 0 and value < 100 
         return value
 
     def as_dict(self):
@@ -90,7 +89,7 @@ def request_device_readings(device_uuid):
         try:
             reading = SensorData(body_data)
         except AssertionError:
-            return 'Invalid value for sensor type, only temperature and humidity may have values between 0 and 100', 422
+            return 'Invalid value for sensor type, temperature and humidity may have values between 0 and 100', 422
 
         try:
             db.session.add(reading)
@@ -178,6 +177,32 @@ def request_device_readings_max(device_uuid):
     * end -> The epoch end time for a sensor being created
     """
 
+    try:
+        body_data = json.loads(request.data)
+    except:
+        return 'Bad request', 400
+
+    if not body_data.get('type', None):
+        return 'Missing type parameter', 422
+
+    session = Session()
+    subquery = session.query(func.max(SensorData.value)).filter(device_uuid == device_uuid)
+    if body_data.get('start', None):
+        subquery = subquery.filter(SensorData.date_created >= body_data.get('start'))
+    if body_data.get('end', None):
+        subquery = subquery.filter(SensorData.date_created <= body_data.get('end'))
+
+    min_val = subquery.first()[0]
+
+    query = SensorData.query.filter(SensorData.device_uuid == device_uuid, SensorData.value == min_val)
+    if body_data.get('start', None):
+        query = query.filter(SensorData.date_created >= body_data.get('start'))
+    if body_data.get('end', None):
+        query = query.filter(SensorData.date_created <= body_data.get('end'))
+    query = query.order_by(SensorData.date_created.desc())
+
+    row = query.first()
+    return jsonify(row.as_dict()), 200
     return 'Endpoint is not implemented', 501
 
 @app.route('/devices/<string:device_uuid>/readings/median/', methods = ['GET'])
@@ -192,6 +217,29 @@ def request_device_readings_median(device_uuid):
     * start -> The epoch start time for a sensor being created
     * end -> The epoch end time for a sensor being created
     """
+
+    try:
+        body_data = json.loads(request.data)
+    except:
+        return 'Bad request', 400
+
+    if not body_data.get('type', None):
+        return 'Missing type parameter', 422
+
+    session = Session()
+    subquery = session.query(func.max(SensorData.value)).filter(device_uuid == device_uuid)
+    if body_data.get('start', None):
+        subquery = subquery.filter(SensorData.date_created >= body_data.get('start'))
+    if body_data.get('end', None):
+        subquery = subquery.filter(SensorData.date_created <= body_data.get('end'))
+
+    count = subquery.count()
+
+    """
+    """
+    pdb.set_trace()
+    query = SensorData.query.percentile_cont(0.5)
+    rows = query.all()
 
     return 'Endpoint is not implemented', 501
 
