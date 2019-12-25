@@ -238,7 +238,7 @@ def request_device_readings_median(device_uuid):
     if body_data.get('end', None):
         query = query.filter(SensorData.date_created <= body_data.get('end'))
 
-    # Compute average value for even number of records
+    # Compute median value for even number of records
     row = None
     if 0 == count % 2:
         query = query.order_by(SensorData.value).limit(2).offset((count - 1) / 2)
@@ -265,7 +265,23 @@ def request_device_readings_mean(device_uuid):
     * end -> The epoch end time for a sensor being created
     """
 
-    return 'Endpoint is not implemented', 501
+    try:
+        body_data = json.loads(request.data)
+    except:
+        return 'Bad request', 400
+
+    if not body_data.get('type', None):
+        return 'Missing type parameter', 422
+
+    session = Session()
+    query = session.query(func.avg(SensorData.value)).filter(device_uuid == device_uuid).filter(SensorData.sensor_type == body_data.get('type'))
+    if body_data.get('start', None):
+        query = query.filter(SensorData.date_created >= body_data.get('start'))
+    if body_data.get('end', None):
+        query = query.filter(SensorData.date_created <= body_data.get('end'))
+
+    row = query.first()
+    return jsonify({ 'mean': row[0] }), 200
 
 @app.route('/devices/<string:device_uuid>/readings/mode/', methods = ['GET'])
 def request_device_readings_mode(device_uuid):
