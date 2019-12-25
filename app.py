@@ -250,7 +250,7 @@ def request_device_readings_median(device_uuid):
         query = query.order_by(SensorData.value).limit(1).offset(count / 2)
         row = query.first()
 
-    return jsonify(row.as_dict()), 200
+    return jsonify({'value': row.value), 200
 
 @app.route('/devices/<string:device_uuid>/readings/mean/', methods = ['GET'])
 def request_device_readings_mean(device_uuid):
@@ -281,7 +281,7 @@ def request_device_readings_mean(device_uuid):
         query = query.filter(SensorData.date_created <= body_data.get('end'))
 
     row = query.first()
-    return jsonify({ 'mean': row[0] }), 200
+    return jsonify({ 'value': row[0] }), 200
 
 @app.route('/devices/<string:device_uuid>/readings/mode/', methods = ['GET'])
 def request_device_readings_mode(device_uuid):
@@ -311,10 +311,10 @@ def request_device_readings_mode(device_uuid):
         query = query.filter(SensorData.date_created <= body_data.get('end'))
 
     row = query.first()
-    return jsonify({ 'mode': row[0] }), 200
+    return jsonify({ 'value': row[0] }), 200
 
 #@app.route('/devices/<string:device_uuid>/readings/quartiles/', methods = ['GET'])
-#def request_device_readings_mode(device_uuid):
+def request_device_readings_quartile(device_uuid):
     """
     This endpoint allows clients to GET the 1st and 3rd quartile
     sensor reading value for a device.
