@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, Response
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, validates
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, functions
 from flask.json import jsonify
 import json
 import sqlite3
@@ -203,7 +203,6 @@ def request_device_readings_max(device_uuid):
 
     row = query.first()
     return jsonify(row.as_dict()), 200
-    return 'Endpoint is not implemented', 501
 
 @app.route('/devices/<string:device_uuid>/readings/median/', methods = ['GET'])
 def request_device_readings_median(device_uuid):
@@ -226,22 +225,32 @@ def request_device_readings_median(device_uuid):
     if not body_data.get('type', None):
         return 'Missing type parameter', 422
 
-    session = Session()
-    subquery = session.query(func.max(SensorData.value)).filter(device_uuid == device_uuid)
+    subquery = SensorData.query.filter(device_uuid == device_uuid, SensorData.sensor_type == body_data.get('type'))
     if body_data.get('start', None):
         subquery = subquery.filter(SensorData.date_created >= body_data.get('start'))
     if body_data.get('end', None):
         subquery = subquery.filter(SensorData.date_created <= body_data.get('end'))
 
     count = subquery.count()
+    query = SensorData.query.filter(device_uuid == device_uuid).filter(SensorData.sensor_type == body_data.get('type'))
+    if body_data.get('start', None):
+        query = query.filter(SensorData.date_created >= body_data.get('start'))
+    if body_data.get('end', None):
+        query = query.filter(SensorData.date_created <= body_data.get('end'))
 
-    """
-    """
-    pdb.set_trace()
-    query = SensorData.query.percentile_cont(0.5)
-    rows = query.all()
+    # Compute average value for even number of records
+    row = None
+    if 0 == count % 2:
+        query = query.order_by(SensorData.value).limit(2).offset((count - 1) / 2)
+        couple = query.all()
+        couple[0].value = (couple[0].value + couple[1].value) / 2.0
+        row = couple[0]
+    # Standard median computation
+    else:
+        query = query.order_by(SensorData.value).limit(1).offset(count / 2)
+        row = query.first()
 
-    return 'Endpoint is not implemented', 501
+    return jsonify(row.as_dict()), 200
 
 @app.route('/devices/<string:device_uuid>/readings/mean/', methods = ['GET'])
 def request_device_readings_mean(device_uuid):
