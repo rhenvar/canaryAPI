@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, Response
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, desc
 from sqlalchemy.orm import sessionmaker, validates
 from sqlalchemy.sql import func, functions
 from flask.json import jsonify
@@ -295,8 +295,23 @@ def request_device_readings_mode(device_uuid):
     * start -> The epoch start time for a sensor being created
     * end -> The epoch end time for a sensor being created
     """
+    try:
+        body_data = json.loads(request.data)
+    except:
+        return 'Bad request', 400
 
-    return 'Endpoint is not implemented', 501
+    if not body_data.get('type', None):
+        return 'Missing type parameter', 422
+
+    session = Session()
+    query = session.query(SensorData.value, func.count(SensorData.value).label('total')).filter(device_uuid == device_uuid).filter(SensorData.sensor_type == body_data.get('type')).group_by(SensorData.value).order_by(desc('total'))
+    if body_data.get('start', None):
+        query = query.filter(SensorData.date_created >= body_data.get('start'))
+    if body_data.get('end', None):
+        query = query.filter(SensorData.date_created <= body_data.get('end'))
+
+    row = query.first()
+    return jsonify({ 'mode': row[0] }), 200
 
 #@app.route('/devices/<string:device_uuid>/readings/quartiles/', methods = ['GET'])
 #def request_device_readings_mode(device_uuid):
