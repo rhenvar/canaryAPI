@@ -388,34 +388,38 @@ def request_device_readings_quartiles(device_uuid):
         subquery = subquery.filter(SensorData.date_created <= body_data.get('end'))
 
     count = subquery.count()
-    query = SensorData.query.filter(device_uuid == device_uuid).filter(SensorData.sensor_type == body_data.get('type'))
+    query = SensorData.query.order_by(SensorData.value).filter(device_uuid == device_uuid).filter(SensorData.sensor_type == body_data.get('type'))
     if body_data.get('start', None):
         query = query.filter(SensorData.date_created >= body_data.get('start'))
     if body_data.get('end', None):
         query = query.filter(SensorData.date_created <= body_data.get('end'))
 
-    # Quartile computation using Turkey's hinges 
+    # Quartile calculation using Turkey's hinges 
     q1_row = None
     q3_row = None
     
     pdb.set_trace()
-    # perfect groups of 4 or even groups summing to odd (including median)
+    # four equal groups or even groups summing to odd (including median)
     if 0 == count % 4 or 3 == count % 4:
-        query = query.order_by(SensorData.value).limit(2).offset((count - 1) / 4)
-        q1_couple = query.all()
+        q1_query = query.limit(2).offset((count - 1) // 4)
+        q3_query = query.limit(2).offset((count // 2) + (count - 1) // 4)  
+
+        q1_couple = q1_query.all()
         q1_couple[0].value = (q1_couple[0].value + q1_couple[1].value) / 2.0
         q1_row = q1_couple[0]
 
-        query = query.order_by(SensorData.value).limit(2).offset((count - 1) / 4)
-        q3_couple = query.all()
+        q3_couple = q3_query.all()
         q3_couple[0].value = (q3_couple[0].value + q3_couple[1].value) / 2.0
         q3_row = q3_couple[0]
     # two odd groups
     else:
-        query = query.order_by(SensorData.value).limit(1).offset(count / 4)
-        q1_row = query.first()
+        q1_query = query.limit(1).offset(count // 4)
+        q3_query = query.limit(1).offset((count // 2) + (count // 4))
 
-    return jsonify({'quartile_1': q1_row.value}), 200
+        q1_row = q1_query.first()
+        q3_row = q3_query.first()
+
+    return jsonify({'quartile_1': q1_row.value, 'quartile_3': q3_row.value}), 200
 
 
 if __name__ == '__main__':
