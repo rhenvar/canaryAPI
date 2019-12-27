@@ -36,6 +36,39 @@ engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI'], echo=True)
 Session = sessionmaker(bind = engine)
 
 
+def validate_request(request, additional_params = []):
+    pdb.set_trace()
+    try: 
+        body_data = json.loads(request.data)
+    except ValueError as ve:
+        raise ve 
+    except Exception as e:
+        raise e 
+
+    try:
+        sensor_type = body_data['type']  
+        if not type(sensor_type) is str:
+            raise ValueError('type must be a string')
+        if not sensor_type in ['temperature', 'humidity']:
+            raise ValueError('Type must be temperature or humidity')
+    except KeyError as ke:
+        raise ke 
+    except ValueError as ve:
+        raise ve
+
+    missing_params = additional_params - body_data.keys()
+    if 0 < len(missing_params):
+        raise KeyError('Missing key(s): %s' % str(missing_params))
+    
+    for key in additional_params:
+        try:
+            val = body_data[key]
+            if not type(val) is int:
+                raise ValueError('%s must be an int' % key)
+        except ValueError as ve: 
+            raise ve
+
+
 # Readings Model
 class SensorData(db.Model):
     __tablename__ = "readings"
@@ -78,9 +111,13 @@ def request_device_readings(device_uuid):
 
     """
     try:
-        body_data = json.loads(request.data)
-    except:
-        return 'Bad request', 400
+        validate_request(request)
+    except KeyError as ke:
+        return str(ke), 422
+    except ValueError as ve:
+        return str(ve), 400
+    except Exception as e:
+        return str(e), 400
    
     if request.method == 'POST':
 
@@ -326,16 +363,19 @@ def request_device_readings_quartiles(device_uuid):
     """
 
     try:
-        body_data = json.loads(request.data)
-    except:
-        return 'Bad request', 400
+        validate_request(request, ['start', 'end'])
+    except KeyError as ke:
+        return str(ke), 422
+    except ValueError as ve:
+        return str(ve), 400
+    except Exception as e:
+        return str(e), 400
 
-    if not body_data.get('type', None):
-        return 'Missing type parameter', 422
-    if not body_data.get('start', None):
-        return 'Missing start parameter', 422
-    if not body_data.get('end', None):
-        return 'Missing end parameter', 422
+
+    body_data = json.loads(request.data)
+    sensor_type = body_data['type']
+    start = body_data['start']
+    end = body_data['end']
 
     subquery = SensorData.query.filter(device_uuid == device_uuid, SensorData.sensor_type == body_data.get('type'))
     if body_data.get('start', None):
