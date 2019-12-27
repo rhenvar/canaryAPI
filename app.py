@@ -395,22 +395,27 @@ def request_device_readings_quartiles(device_uuid):
         query = query.filter(SensorData.date_created <= body_data.get('end'))
 
     # Quartile computation using Turkey's hinges 
-    row = None
-    limit = 1
+    q1_row = None
+    q3_row = None
     
     pdb.set_trace()
-    # perfect groups of 4
-    if 0 == count % 4 or 0 != count % 2:
-        query = query.order_by(SensorData.value).limit(2).offset(count / 4)
-        couple = query.all()
-        couple[0].value = (couple[0].value + couple[1].value) / 2.0
-        row = couple[0]
-    # two odd groups
-    elif 0 == count % 2:
-        query = query.order_by(SensorData.value).limit(1).offset(count / 4)
-        row = query.first()
+    # perfect groups of 4 or even groups summing to odd (including median)
+    if 0 == count % 4 or 3 == count % 4:
+        query = query.order_by(SensorData.value).limit(2).offset((count - 1) / 4)
+        q1_couple = query.all()
+        q1_couple[0].value = (q1_couple[0].value + q1_couple[1].value) / 2.0
+        q1_row = q1_couple[0]
 
-    return jsonify({'quartile_1': row.value}), 200
+        query = query.order_by(SensorData.value).limit(2).offset((count - 1) / 4)
+        q3_couple = query.all()
+        q3_couple[0].value = (q3_couple[0].value + q3_couple[1].value) / 2.0
+        q3_row = q3_couple[0]
+    # two odd groups
+    else:
+        query = query.order_by(SensorData.value).limit(1).offset(count / 4)
+        q1_row = query.first()
+
+    return jsonify({'quartile_1': q1_row.value}), 200
 
 
 if __name__ == '__main__':
