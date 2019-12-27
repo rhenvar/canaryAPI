@@ -223,13 +223,6 @@ def request_device_readings_max(device_uuid):
     except Exception as e:
         return str(e), 400
 
-    try:
-        body_data = json.loads(request.data)
-    except:
-        return 'Bad request', 400
-
-    if not body_data.get('type', None):
-        return 'Missing type parameter', 422
 
     session = Session()
     subquery = session.query(func.max(SensorData.value)).filter(device_uuid == device_uuid)
@@ -271,13 +264,6 @@ def request_device_readings_median(device_uuid):
         return str(ve), 400
     except Exception as e:
         return str(e), 400
-    try:
-        body_data = json.loads(request.data)
-    except:
-        return 'Bad request', 400
-
-    if not body_data.get('type', None):
-        return 'Missing type parameter', 422
 
     subquery = SensorData.query.filter(device_uuid == device_uuid, SensorData.sensor_type == body_data.get('type'))
     if body_data.get('start', None):
@@ -413,14 +399,9 @@ def request_device_readings_quartiles(device_uuid):
     row = None
     limit = 1
     offset = count / 4
-    if 0 == count % 2:
-        if 0 == count % 4:
-            limit = 2
-            offset = (count - 1) / 4 
-        else:
-            limit = 1
-            offset = count / 4
-
+    if 0 == count % 4:
+        limit = 2
+        offset = (count - 1) / 4 
     
     if 0 == count % 4:
         query = query.order_by(SensorData.value).limit(limit).offset(offset)
