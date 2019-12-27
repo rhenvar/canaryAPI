@@ -250,7 +250,7 @@ def request_device_readings_median(device_uuid):
         query = query.order_by(SensorData.value).limit(1).offset(count / 2)
         row = query.first()
 
-    return jsonify({'value': row.value), 200
+    return jsonify({'value': row.value}), 200
 
 @app.route('/devices/<string:device_uuid>/readings/mean/', methods = ['GET'])
 def request_device_readings_mean(device_uuid):
@@ -313,8 +313,8 @@ def request_device_readings_mode(device_uuid):
     row = query.first()
     return jsonify({ 'value': row[0] }), 200
 
-#@app.route('/devices/<string:device_uuid>/readings/quartiles/', methods = ['GET'])
-def request_device_readings_quartile(device_uuid):
+@app.route('/devices/<string:device_uuid>/readings/quartiles/', methods = ['GET'])
+def request_device_readings_quartiles(device_uuid):
     """
     This endpoint allows clients to GET the 1st and 3rd quartile
     sensor reading value for a device.
@@ -325,7 +325,54 @@ def request_device_readings_quartile(device_uuid):
     * end -> The epoch end time for a sensor being created
     """
 
-    return 'Endpoint is not implemented', 501
+    try:
+        body_data = json.loads(request.data)
+    except:
+        return 'Bad request', 400
+
+    if not body_data.get('type', None):
+        return 'Missing type parameter', 422
+    if not body_data.get('start', None):
+        return 'Missing start parameter', 422
+    if not body_data.get('end', None):
+        return 'Missing end parameter', 422
+
+    subquery = SensorData.query.filter(device_uuid == device_uuid, SensorData.sensor_type == body_data.get('type'))
+    if body_data.get('start', None):
+        subquery = subquery.filter(SensorData.date_created >= body_data.get('start'))
+    if body_data.get('end', None):
+        subquery = subquery.filter(SensorData.date_created <= body_data.get('end'))
+
+    count = subquery.count()
+    query = SensorData.query.filter(device_uuid == device_uuid).filter(SensorData.sensor_type == body_data.get('type'))
+    if body_data.get('start', None):
+        query = query.filter(SensorData.date_created >= body_data.get('start'))
+    if body_data.get('end', None):
+        query = query.filter(SensorData.date_created <= body_data.get('end'))
+
+    # First Quartile Computation 
+    row = None
+    limit = 1
+    offset = count / 4
+    if 0 == count % 2:
+        if 0 == count % 4:
+            limit = 2
+            offset = (count - 1) / 4 
+        else:
+            limit = 1
+            offset = count / 4
+
+    
+    if 0 == count % 4:
+        query = query.order_by(SensorData.value).limit(limit).offset(offset)
+        couple = query.all()
+        couple[0].value = (couple[0].value + couple[1].value) / 2.0
+        row = couple[0]
+    else:
+        query = query.order_by(SensorData.value).limit(1).offset(count / 2)
+        row = query.first()
+
+    return jsonify({'quartile_1': row.value}), 200
 
 
 if __name__ == '__main__':
