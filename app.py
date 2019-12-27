@@ -175,12 +175,13 @@ def request_device_readings_min(device_uuid):
     #cur = conn.cursor()
 
     try:
-        body_data = json.loads(request.data)
-    except:
-        return 'Bad request', 400
-
-    if not body_data.get('type', None):
-        return 'Missing type parameter', 422
+        validate_request(request)
+    except KeyError as ke:
+        return str(ke), 422
+    except ValueError as ve:
+        return str(ve), 400
+    except Exception as e:
+        return str(e), 400
 
     session = Session()
     subquery = session.query(func.min(SensorData.value)).filter(device_uuid == device_uuid)
@@ -213,6 +214,14 @@ def request_device_readings_max(device_uuid):
     * start -> The epoch start time for a sensor being created
     * end -> The epoch end time for a sensor being created
     """
+    try:
+        validate_request(request)
+    except KeyError as ke:
+        return str(ke), 422
+    except ValueError as ve:
+        return str(ve), 400
+    except Exception as e:
+        return str(e), 400
 
     try:
         body_data = json.loads(request.data)
@@ -254,6 +263,14 @@ def request_device_readings_median(device_uuid):
     * end -> The epoch end time for a sensor being created
     """
 
+    try:
+        validate_request(request)
+    except KeyError as ke:
+        return str(ke), 422
+    except ValueError as ve:
+        return str(ve), 400
+    except Exception as e:
+        return str(e), 400
     try:
         body_data = json.loads(request.data)
     except:
@@ -303,12 +320,13 @@ def request_device_readings_mean(device_uuid):
     """
 
     try:
-        body_data = json.loads(request.data)
-    except:
-        return 'Bad request', 400
-
-    if not body_data.get('type', None):
-        return 'Missing type parameter', 422
+        validate_request(request)
+    except KeyError as ke:
+        return str(ke), 422
+    except ValueError as ve:
+        return str(ve), 400
+    except Exception as e:
+        return str(e), 400
 
     session = Session()
     query = session.query(func.avg(SensorData.value)).filter(device_uuid == device_uuid).filter(SensorData.sensor_type == body_data.get('type'))
@@ -333,12 +351,13 @@ def request_device_readings_mode(device_uuid):
     * end -> The epoch end time for a sensor being created
     """
     try:
-        body_data = json.loads(request.data)
-    except:
-        return 'Bad request', 400
-
-    if not body_data.get('type', None):
-        return 'Missing type parameter', 422
+        validate_request(request)
+    except KeyError as ke:
+        return str(ke), 422
+    except ValueError as ve:
+        return str(ve), 400
+    except Exception as e:
+        return str(e), 400
 
     session = Session()
     query = session.query(SensorData.value, func.count(SensorData.value).label('total')).filter(device_uuid == device_uuid).filter(SensorData.sensor_type == body_data.get('type')).group_by(SensorData.value).order_by(desc('total'))
