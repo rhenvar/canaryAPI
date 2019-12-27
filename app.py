@@ -37,7 +37,6 @@ Session = sessionmaker(bind = engine)
 
 
 def validate_request(request, additional_params = []):
-    pdb.set_trace()
     try: 
         body_data = json.loads(request.data)
     except ValueError as ve:
@@ -395,21 +394,20 @@ def request_device_readings_quartiles(device_uuid):
     if body_data.get('end', None):
         query = query.filter(SensorData.date_created <= body_data.get('end'))
 
-    # First Quartile Computation 
+    # Quartile computation using Turkey's hinges 
     row = None
     limit = 1
-    offset = count / 4
-    if 0 == count % 4:
-        limit = 2
-        offset = (count - 1) / 4 
     
-    if 0 == count % 4:
-        query = query.order_by(SensorData.value).limit(limit).offset(offset)
+    pdb.set_trace()
+    # perfect groups of 4
+    if 0 == count % 4 or 0 != count % 2:
+        query = query.order_by(SensorData.value).limit(2).offset(count / 4)
         couple = query.all()
         couple[0].value = (couple[0].value + couple[1].value) / 2.0
         row = couple[0]
-    else:
-        query = query.order_by(SensorData.value).limit(1).offset(count / 2)
+    # two odd groups
+    elif 0 == count % 2:
+        query = query.order_by(SensorData.value).limit(1).offset(count / 4)
         row = query.first()
 
     return jsonify({'quartile_1': row.value}), 200
