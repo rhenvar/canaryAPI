@@ -5,6 +5,7 @@ from sqlalchemy import create_engine, desc
 from sqlalchemy.orm import sessionmaker, validates
 from sqlalchemy.sql import func, functions
 from flask.json import jsonify
+import configmodule
 import json
 import sqlite3
 import time
@@ -12,6 +13,7 @@ import pdb
 
 # Setup python flask
 app = Flask(__name__)
+app.config.from_object('configmodule.Config')
 dal = DataAccessLayer(app=app)
 
 def validate_request(request_body, sensor_type = True, additional_params = []):
