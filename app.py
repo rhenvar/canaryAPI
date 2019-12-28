@@ -143,7 +143,7 @@ def request_device_readings(device_uuid):
             return str(e), 400
         body_data = json.loads(request.data) if request.data else {}
 
-        query = SensorData.query.filter(device_uuid == device_uuid) 
+        query = SensorData.query.filter(SensorData.device_uuid == device_uuid) 
         if body_data.get('type', None):
             query = query.filter(SensorData.sensor_type == body_data.get('type'))
         if body_data.get('start', None):
@@ -179,7 +179,7 @@ def request_device_readings_min(device_uuid):
 
     dal = DataAccessLayer(app=app)
     session = dal.Session()
-    subquery = session.query(func.min(SensorData.value)).filter(device_uuid == device_uuid)
+    subquery = session.query(func.min(SensorData.value)).filter(SensorData.device_uuid == device_uuid)
     if body_data.get('start', None):
         subquery = subquery.filter(SensorData.date_created >= body_data.get('start'))
     if body_data.get('end', None):
@@ -220,7 +220,7 @@ def request_device_readings_max(device_uuid):
 
 
     session = dal.Session()
-    subquery = session.query(func.max(SensorData.value)).filter(device_uuid == device_uuid)
+    subquery = session.query(func.max(SensorData.value)).filter(SensorData.device_uuid == device_uuid)
     if body_data.get('start', None):
         subquery = subquery.filter(SensorData.date_created >= body_data.get('start'))
     if body_data.get('end', None):
@@ -260,14 +260,14 @@ def request_device_readings_median(device_uuid):
     except Exception as e:
         return str(e), 400
 
-    subquery = SensorData.query.filter(device_uuid == device_uuid, SensorData.sensor_type == body_data.get('type'))
+    subquery = SensorData.query.filter(SensorData.device_uuid == device_uuid, SensorData.sensor_type == body_data.get('type'))
     if body_data.get('start', None):
         subquery = subquery.filter(SensorData.date_created >= body_data.get('start'))
     if body_data.get('end', None):
         subquery = subquery.filter(SensorData.date_created <= body_data.get('end'))
 
     count = subquery.count()
-    query = SensorData.query.filter(device_uuid == device_uuid).filter(SensorData.sensor_type == body_data.get('type'))
+    query = SensorData.query.filter(SensorData.device_uuid == device_uuid).filter(SensorData.sensor_type == body_data.get('type'))
     if body_data.get('start', None):
         query = query.filter(SensorData.date_created >= body_data.get('start'))
     if body_data.get('end', None):
@@ -310,7 +310,7 @@ def request_device_readings_mean(device_uuid):
         return str(e), 400
 
     session = dal.Session()
-    query = session.query(func.avg(SensorData.value)).filter(device_uuid == device_uuid).filter(SensorData.sensor_type == body_data.get('type'))
+    query = session.query(func.avg(SensorData.value)).filter(SensorData.device_uuid == device_uuid).filter(SensorData.sensor_type == body_data.get('type'))
     if body_data.get('start', None):
         query = query.filter(SensorData.date_created >= body_data.get('start'))
     if body_data.get('end', None):
@@ -342,7 +342,7 @@ def request_device_readings_mode(device_uuid):
         return str(e), 400
 
     session = dal.Session()
-    query = session.query(SensorData.value, func.count(SensorData.value).label('total')).filter(device_uuid == device_uuid).filter(SensorData.sensor_type == body_data.get('type')).group_by(SensorData.value).order_by(desc('total'))
+    query = session.query(SensorData.value, func.count(SensorData.value).label('total')).filter(SensorData.device_uuid == device_uuid).filter(SensorData.sensor_type == body_data.get('type')).group_by(SensorData.value).order_by(desc('total'))
     if body_data.get('start', None):
         query = query.filter(SensorData.date_created >= body_data.get('start'))
     if body_data.get('end', None):
@@ -378,14 +378,14 @@ def request_device_readings_quartiles(device_uuid):
     start = body_data['start']
     end = body_data['end']
 
-    subquery = SensorData.query.filter(device_uuid == device_uuid, SensorData.sensor_type == body_data.get('type'))
+    subquery = SensorData.query.filter(SensorData.device_uuid == device_uuid, SensorData.sensor_type == body_data.get('type'))
     if body_data.get('start', None):
         subquery = subquery.filter(SensorData.date_created >= body_data.get('start'))
     if body_data.get('end', None):
         subquery = subquery.filter(SensorData.date_created <= body_data.get('end'))
 
     count = subquery.count()
-    query = SensorData.query.order_by(SensorData.value).filter(device_uuid == device_uuid).filter(SensorData.sensor_type == body_data.get('type'))
+    query = SensorData.query.order_by(SensorData.value).filter(SensorData.device_uuid == device_uuid).filter(SensorData.sensor_type == body_data.get('type'))
     if body_data.get('start', None):
         query = query.filter(SensorData.date_created >= body_data.get('start'))
     if body_data.get('end', None):
