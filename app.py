@@ -9,12 +9,12 @@ import json
 import time
 
 # Setup python flask configuration
-app = Flask(__name__, instance_relative_config = True)
+app = Flask(__name__)
 app.config.from_object('configmodule.Config')
 if environ.get('DEVELOPMENT_SETTINGS'):
-    app.config.from_pyfile('DEVELOPMENT_SETTINGS')
-if environ.get('TESTING_SETTINGS'):
-    app.config.from_pyfile('testing.cfg') 
+    app.config.from_object('configmodule.DevelopmentConfig')
+elif environ.get('TESTING_SETTINGS'):
+    app.config.from_object('configmodule.TestingConfig') 
 
 dal = DataAccessLayer(app=app)
 
