@@ -12,8 +12,7 @@ import sqlite3
 import time
 import pdb
 
-# Setup python flask
-pdb.set_trace()
+# Setup python flask configuration
 app = Flask(__name__, instance_relative_config = True)
 app.config.from_object('configmodule.Config')
 if environ.get('DEVELOPMENT_SETTINGS'):
@@ -73,7 +72,7 @@ class SensorData(dal.db.Model):
 
     @validates('value')
     def validate_value(self, key, value):
-        assert value > 0 and value < 100 
+        assert value >= 0 and value <= 100 
         return value
 
     def as_dict(self):
@@ -101,8 +100,9 @@ def request_device_readings(device_uuid):
     dal = DataAccessLayer(app=app)
    
     if request.method == 'POST':
+        pdb.set_trace()
         try:
-            validate_request(request.data, additional_params = ['value', 'date_created'])
+            validate_request(request.data, additional_params = ['value'])
         except KeyError as ke:
             return str(ke), 422
         except ValueError as ve:
