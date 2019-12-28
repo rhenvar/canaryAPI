@@ -1,9 +1,7 @@
 import json
-import pytest
 import sqlite3
 import time
 import unittest
-import pdb
 
 from app import app
 

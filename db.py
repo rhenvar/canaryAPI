@@ -1,6 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import create_engine, desc
-from sqlalchemy.orm import sessionmaker, validates
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 class DataAccessLayer:
     def __init__(self, app):
