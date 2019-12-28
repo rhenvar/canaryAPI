@@ -1,16 +1,12 @@
 from db import DataAccessLayer
-from flask import Flask, render_template, request, Response
+from flask import Flask, request
 from flask.json import jsonify
-from flask_sqlalchemy import SQLAlchemy
 from os import environ
-from sqlalchemy import create_engine, desc
-from sqlalchemy.orm import sessionmaker, validates
-from sqlalchemy.sql import func, functions
-import configmodule
+from sqlalchemy import desc
+from sqlalchemy.orm import validates
+from sqlalchemy.sql import func
 import json
-import sqlite3
 import time
-import pdb
 
 # Setup python flask configuration
 app = Flask(__name__, instance_relative_config = True)
@@ -119,7 +115,7 @@ def request_device_readings(device_uuid):
             dal.db.session.add(reading)
             dal.db.session.commit()
             return 'success', 201
-        except e:
+        except Exception as e:
             return 'Error saving reading to database %s' % e.msg, 500 
 
     else:
@@ -362,9 +358,6 @@ def request_device_readings_quartiles(device_uuid):
         return str(e), 400
 
     body_data = json.loads(request.data)
-    sensor_type = body_data['type']
-    start = body_data['start']
-    end = body_data['end']
 
     subquery = SensorData.query.filter(SensorData.device_uuid == device_uuid, SensorData.sensor_type == body_data.get('type'))
     if body_data.get('start', None):
