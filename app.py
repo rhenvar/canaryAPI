@@ -1,3 +1,4 @@
+from db import DataAccessLayer
 from flask import Flask, render_template, request, Response
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import create_engine, desc
@@ -11,30 +12,7 @@ import pdb
 
 # Setup python flask
 app = Flask(__name__)
-
-# Set the db that we want and open the connection
-database = None
-if app.config['TESTING']:
-    database = 'test_database.db'
-    conn = sqlite3.connect('test_database.db')
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test_database.db'
-else:
-    database = 'database.db'
-    conn = sqlite3.connect('database.db')
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
-conn.row_factory = sqlite3.Row
-cur = conn.cursor()
-db = SQLAlchemy(app)
-
-# Setup the SQLite DB
-conn = sqlite3.connect(database)
-conn.execute('CREATE TABLE IF NOT EXISTS readings (device_uuid TEXT, type TEXT, value INTEGER, date_created INTEGER)')
-conn.close()
-
-# Setup SqlAlchemy session
-engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI'], echo=True)
-Session = sessionmaker(bind = engine)
-
+dal = DataAccessLayer(app=app)
 
 def validate_request(request_body, sensor_type = True, additional_params = []):
     try: 
@@ -69,15 +47,14 @@ def validate_request(request_body, sensor_type = True, additional_params = []):
         except ValueError as ve: 
             raise ve
 
-
 # Readings Model
-class SensorData(db.Model):
+class SensorData(dal.db.Model):
     __tablename__ = "readings"
 
-    device_uuid =  db.Column(db.Text, primary_key = True)
-    sensor_type =  db.Column('type', db.Text, primary_key = True)
-    value =        db.Column(db.Integer, primary_key = True)
-    date_created = db.Column(db.Integer, primary_key = True, default = int(time.time()))
+    device_uuid =  dal.db.Column(dal.db.Text, primary_key = True)
+    sensor_type =  dal.db.Column('type', dal.db.Text, primary_key = True)
+    value =        dal.db.Column(dal.db.Integer, primary_key = True)
+    date_created = dal.db.Column(dal.db.Integer, primary_key = True, default = int(time.time()))
 
     def __init__(self, data):
         self.device_uuid = data['device_uuid']
@@ -111,15 +88,16 @@ def request_device_readings(device_uuid):
         If none provided, we set to now.
 
     """
+
+    dal = DataAccessLayer(app=app)
    
-    pdb.set_trace()
     if request.method == 'POST':
         try:
             validate_request(request.data, additional_params = ['value', 'date_created'])
         except KeyError as ke:
             return str(ke), 422
         except ValueError as ve:
-            return str(ve), 400
+            return str(ve), 422
         except Exception as e:
             return str(e), 400
 
@@ -132,8 +110,8 @@ def request_device_readings(device_uuid):
             return 'Invalid value for sensor type, temperature and humidity may have values between 0 and 100', 422
 
         try:
-            db.session.add(reading)
-            db.session.commit()
+            dal.db.session.add(reading)
+            dal.db.session.commit()
             return 'success', 201
         except e:
             return 'Error saving reading to database %s' % e.msg, 500 
@@ -151,7 +129,7 @@ def request_device_readings(device_uuid):
         except KeyError as ke:
             return str(ke), 422
         except ValueError as ve:
-            return str(ve), 400
+            return str(ve), 422
         except Exception as e:
             return str(e), 400
         body_data = json.loads(request.data) if request.data else {}
@@ -180,23 +158,18 @@ def request_device_readings_min(device_uuid):
     * start -> The epoch start time for a sensor being created
     * end -> The epoch end time for a sensor being created
     """
-    #if app.config['TESTING']:
-    #    conn = sqlite3.connect('test_database.db')
-    #else:
-    #    conn = sqlite3.connect('database.db')
-    #conn.row_factory = sqlite3.Row
-    #cur = conn.cursor()
 
     try:
         validate_request(request.data)
     except KeyError as ke:
         return str(ke), 422
     except ValueError as ve:
-        return str(ve), 400
+        return str(ve), 422
     except Exception as e:
         return str(e), 400
 
-    session = Session()
+    dal = DataAccessLayer(app=app)
+    session = dal.Session()
     subquery = session.query(func.min(SensorData.value)).filter(device_uuid == device_uuid)
     if body_data.get('start', None):
         subquery = subquery.filter(SensorData.date_created >= body_data.get('start'))
@@ -232,12 +205,12 @@ def request_device_readings_max(device_uuid):
     except KeyError as ke:
         return str(ke), 422
     except ValueError as ve:
-        return str(ve), 400
+        return str(ve), 422
     except Exception as e:
         return str(e), 400
 
 
-    session = Session()
+    session = dal.Session()
     subquery = session.query(func.max(SensorData.value)).filter(device_uuid == device_uuid)
     if body_data.get('start', None):
         subquery = subquery.filter(SensorData.date_created >= body_data.get('start'))
@@ -274,7 +247,7 @@ def request_device_readings_median(device_uuid):
     except KeyError as ke:
         return str(ke), 422
     except ValueError as ve:
-        return str(ve), 400
+        return str(ve), 422
     except Exception as e:
         return str(e), 400
 
@@ -323,11 +296,11 @@ def request_device_readings_mean(device_uuid):
     except KeyError as ke:
         return str(ke), 422
     except ValueError as ve:
-        return str(ve), 400
+        return str(ve), 422
     except Exception as e:
         return str(e), 400
 
-    session = Session()
+    session = dal.Session()
     query = session.query(func.avg(SensorData.value)).filter(device_uuid == device_uuid).filter(SensorData.sensor_type == body_data.get('type'))
     if body_data.get('start', None):
         query = query.filter(SensorData.date_created >= body_data.get('start'))
@@ -349,16 +322,17 @@ def request_device_readings_mode(device_uuid):
     * start -> The epoch start time for a sensor being created
     * end -> The epoch end time for a sensor being created
     """
+
     try:
         validate_request(request.data)
     except KeyError as ke:
         return str(ke), 422
     except ValueError as ve:
-        return str(ve), 400
+        return str(ve), 422
     except Exception as e:
         return str(e), 400
 
-    session = Session()
+    session = dal.Session()
     query = session.query(SensorData.value, func.count(SensorData.value).label('total')).filter(device_uuid == device_uuid).filter(SensorData.sensor_type == body_data.get('type')).group_by(SensorData.value).order_by(desc('total'))
     if body_data.get('start', None):
         query = query.filter(SensorData.date_created >= body_data.get('start'))
@@ -385,7 +359,7 @@ def request_device_readings_quartiles(device_uuid):
     except KeyError as ke:
         return str(ke), 422
     except ValueError as ve:
-        return str(ve), 400
+        return str(ve), 422
     except Exception as e:
         return str(e), 400
 
@@ -412,7 +386,6 @@ def request_device_readings_quartiles(device_uuid):
     q1_row = None
     q3_row = None
     
-    pdb.set_trace()
     # four equal groups or even groups summing to odd (including median)
     if 0 == count % 4 or 3 == count % 4:
         q1_query = query.limit(2).offset((count - 1) // 4)
