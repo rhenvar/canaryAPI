@@ -1,0 +1,1 @@
+export TESTING_SETTINGS=True

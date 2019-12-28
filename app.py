@@ -1,10 +1,11 @@
 from db import DataAccessLayer
 from flask import Flask, render_template, request, Response
+from flask.json import jsonify
 from flask_sqlalchemy import SQLAlchemy
+from os import environ
 from sqlalchemy import create_engine, desc
 from sqlalchemy.orm import sessionmaker, validates
 from sqlalchemy.sql import func, functions
-from flask.json import jsonify
 import configmodule
 import json
 import sqlite3
@@ -12,8 +13,14 @@ import time
 import pdb
 
 # Setup python flask
-app = Flask(__name__)
+pdb.set_trace()
+app = Flask(__name__, instance_relative_config = True)
 app.config.from_object('configmodule.Config')
+if environ.get('DEVELOPMENT_SETTINGS'):
+    app.config.from_pyfile('DEVELOPMENT_SETTINGS')
+if environ.get('TESTING_SETTINGS'):
+    app.config.from_pyfile('testing.cfg') 
+
 dal = DataAccessLayer(app=app)
 
 def validate_request(request_body, sensor_type = True, additional_params = []):
