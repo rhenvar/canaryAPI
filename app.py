@@ -65,10 +65,10 @@ class SensorData(dal.db.Model):
     date_created = dal.db.Column(dal.db.Integer, primary_key = True, default = int(time.time()))
 
     def __init__(self, data):
-        self.device_uuid = data['device_uuid']
-        self.sensor_type = data['type']
-        self.value = data['value']
-        self.date_created = data['date_created']
+        self.device_uuid = data.get('device_uuid')
+        self.sensor_type = data.get('type')
+        self.value = data.get('value')
+        self.date_created = data.get('date_created', None)
 
     @validates('value')
     def validate_value(self, key, value):
@@ -97,10 +97,7 @@ def request_device_readings(device_uuid):
 
     """
 
-    dal = DataAccessLayer(app=app)
-   
     if request.method == 'POST':
-        pdb.set_trace()
         try:
             validate_request(request.data, additional_params = ['value'])
         except KeyError as ke:
@@ -177,7 +174,8 @@ def request_device_readings_min(device_uuid):
     except Exception as e:
         return str(e), 400
 
-    dal = DataAccessLayer(app=app)
+    body_data = json.loads(request.data)
+
     session = dal.Session()
     subquery = session.query(func.min(SensorData.value)).filter(SensorData.device_uuid == device_uuid)
     if body_data.get('start', None):
@@ -187,15 +185,7 @@ def request_device_readings_min(device_uuid):
 
     min_val = subquery.first()[0]
 
-    query = SensorData.query.filter(SensorData.device_uuid == device_uuid, SensorData.value == min_val)
-    if body_data.get('start', None):
-        query = query.filter(SensorData.date_created >= body_data.get('start'))
-    if body_data.get('end', None):
-        query = query.filter(SensorData.date_created <= body_data.get('end'))
-    query = query.order_by(SensorData.date_created.desc())
-
-    row = query.first()
-    return jsonify(row.as_dict()), 200
+    return jsonify({'value': min_val}), 200
 
 @app.route('/devices/<string:device_uuid>/readings/max/', methods = ['GET'])
 def request_device_readings_max(device_uuid):
@@ -218,6 +208,7 @@ def request_device_readings_max(device_uuid):
     except Exception as e:
         return str(e), 400
 
+    body_data = json.loads(request.data)
 
     session = dal.Session()
     subquery = session.query(func.max(SensorData.value)).filter(SensorData.device_uuid == device_uuid)
@@ -226,17 +217,9 @@ def request_device_readings_max(device_uuid):
     if body_data.get('end', None):
         subquery = subquery.filter(SensorData.date_created <= body_data.get('end'))
 
-    min_val = subquery.first()[0]
+    max_val = subquery.first()[0]
 
-    query = SensorData.query.filter(SensorData.device_uuid == device_uuid, SensorData.value == min_val)
-    if body_data.get('start', None):
-        query = query.filter(SensorData.date_created >= body_data.get('start'))
-    if body_data.get('end', None):
-        query = query.filter(SensorData.date_created <= body_data.get('end'))
-    query = query.order_by(SensorData.date_created.desc())
-
-    row = query.first()
-    return jsonify(row.as_dict()), 200
+    return jsonify({'value': max_val}), 200
 
 @app.route('/devices/<string:device_uuid>/readings/median/', methods = ['GET'])
 def request_device_readings_median(device_uuid):
@@ -260,6 +243,8 @@ def request_device_readings_median(device_uuid):
     except Exception as e:
         return str(e), 400
 
+    body_data = json.loads(request.data)
+
     subquery = SensorData.query.filter(SensorData.device_uuid == device_uuid, SensorData.sensor_type == body_data.get('type'))
     if body_data.get('start', None):
         subquery = subquery.filter(SensorData.date_created >= body_data.get('start'))
@@ -276,13 +261,13 @@ def request_device_readings_median(device_uuid):
     # Compute median value for even number of records
     row = None
     if 0 == count % 2:
-        query = query.order_by(SensorData.value).limit(2).offset((count - 1) / 2)
+        query = query.order_by(SensorData.value).limit(2).offset((count - 1) // 2)
         couple = query.all()
         couple[0].value = (couple[0].value + couple[1].value) / 2.0
         row = couple[0]
     # Standard median computation
     else:
-        query = query.order_by(SensorData.value).limit(1).offset(count / 2)
+        query = query.order_by(SensorData.value).limit(1).offset(count // 2)
         row = query.first()
 
     return jsonify({'value': row.value}), 200
@@ -308,6 +293,8 @@ def request_device_readings_mean(device_uuid):
         return str(ve), 422
     except Exception as e:
         return str(e), 400
+
+    body_data = json.loads(request.data)
 
     session = dal.Session()
     query = session.query(func.avg(SensorData.value)).filter(SensorData.device_uuid == device_uuid).filter(SensorData.sensor_type == body_data.get('type'))
@@ -341,6 +328,8 @@ def request_device_readings_mode(device_uuid):
     except Exception as e:
         return str(e), 400
 
+    body_data = json.loads(request.data)
+
     session = dal.Session()
     query = session.query(SensorData.value, func.count(SensorData.value).label('total')).filter(SensorData.device_uuid == device_uuid).filter(SensorData.sensor_type == body_data.get('type')).group_by(SensorData.value).order_by(desc('total'))
     if body_data.get('start', None):
@@ -371,7 +360,6 @@ def request_device_readings_quartiles(device_uuid):
         return str(ve), 422
     except Exception as e:
         return str(e), 400
-
 
     body_data = json.loads(request.data)
     sensor_type = body_data['type']
