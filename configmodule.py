@@ -1,6 +1,6 @@
 class Config(object):
     ENV = 'Production'
-    FLASK_DEBUG = False
+    DEBUG = False
     TESTING = False
     SQLALCHEMY_DATABASE_URI = 'sqlite:///database.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -8,6 +8,7 @@ class Config(object):
 class DevelopmentConfig(Config):
     ENV = 'Development'
     DEBUG = True
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///development_database.db'
 
 class TestingConfig(Config):
     ENV = 'Testing'
