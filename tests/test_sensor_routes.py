@@ -148,7 +148,7 @@ class SensorRoutesTestCases(unittest.TestCase):
 
         reading = json.loads(response.data)
 
-        self.assertEqual(len(reading), 1)
+        self.assertEqual(len(reading), 4)
 
         self.assertEqual(reading.get('value'), 22)
 
@@ -163,7 +163,7 @@ class SensorRoutesTestCases(unittest.TestCase):
 
         reading = json.loads(response.data)
 
-        self.assertEqual(len(reading), 1)
+        self.assertEqual(len(reading), 4)
 
         self.assertEqual(reading.get('value'), 100)
 
@@ -177,7 +177,7 @@ class SensorRoutesTestCases(unittest.TestCase):
 
         reading = json.loads(response.data)
 
-        self.assertEqual(len(reading), 1)
+        self.assertEqual(len(reading), 4)
 
         self.assertEqual(reading.get('value'), 36)
 

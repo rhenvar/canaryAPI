@@ -181,7 +181,15 @@ def request_device_readings_min(device_uuid):
 
     min_val = subquery.first()[0]
 
-    return jsonify({'value': min_val}), 200
+    query = SensorData.query.filter(SensorData.device_uuid == device_uuid, SensorData.value == min_val)
+    if body_data.get('start', None):
+        query = query.filter(SensorData.date_created >= body_data.get('start'))
+    if body_data.get('end', None):
+        query = query.filter(SensorData.date_created <= body_data.get('end'))
+    query = query.order_by(SensorData.date_created.desc())
+
+    row = query.first()
+    return jsonify(row.as_dict()), 200
 
 @app.route('/devices/<string:device_uuid>/readings/max/', methods = ['GET'])
 def request_device_readings_max(device_uuid):
@@ -214,8 +222,15 @@ def request_device_readings_max(device_uuid):
         subquery = subquery.filter(SensorData.date_created <= body_data.get('end'))
 
     max_val = subquery.first()[0]
+    query = SensorData.query.filter(SensorData.device_uuid == device_uuid, SensorData.value == max_val)
+    if body_data.get('start', None):
+        query = query.filter(SensorData.date_created >= body_data.get('start'))
+    if body_data.get('end', None):
+        query = query.filter(SensorData.date_created <= body_data.get('end'))
+    query = query.order_by(SensorData.date_created.desc())
 
-    return jsonify({'value': max_val}), 200
+    row = query.first()
+    return jsonify(row.as_dict()), 200
 
 @app.route('/devices/<string:device_uuid>/readings/median/', methods = ['GET'])
 def request_device_readings_median(device_uuid):
@@ -266,7 +281,7 @@ def request_device_readings_median(device_uuid):
         query = query.order_by(SensorData.value).limit(1).offset(count // 2)
         row = query.first()
 
-    return jsonify({'value': row.value}), 200
+    return jsonify(row.as_dict()), 200
 
 @app.route('/devices/<string:device_uuid>/readings/mean/', methods = ['GET'])
 def request_device_readings_mean(device_uuid):
